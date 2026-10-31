@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
 ##############################################################################################
-# solarFlowKiosk.html version 1.0.4
+# solarFlowKiosk.html version 1.0.5
 #  Copyright (C) 2026 Ian Millard, Sean Balfour
 #  GPLv3
 #
@@ -10,8 +10,9 @@
 #  without the charts, records or site chrome.
 #
 #  The All Time panel and Today's Peak Usage need solar_assistant_mqtt.py 4.7 or later
-#  (the "alltime" and "today_peak" blocks in solar_data.json); with an older service
-#  they just show dashes.
+#  (the "alltime" and "today_peak" blocks in solar_data.json). The Peak Efficiency rows
+#  need 4.8 or later ("today_pv_peak", alltime "pv_peak_*") and [DivumWXCards]
+#  solar_array_watts. Without them those rows just show dashes.
 #
 #  Optional URL parameters:
 #    theme=dark|light|auto   force a theme (default: the dashboard's saved theme, else auto;
@@ -161,31 +162,36 @@ body{
       <g class="sf-day">
         <rect class="sf-day-bg" x="30" y="10" width="340" height="206" rx="16"/>
         <text class="sf-day-title" x="50" y="40" data-sf-label="Today">Today</text>
-        <g class="sf-day-row" transform="translate(0 70)">
+        <g class="sf-day-row" transform="translate(0 68)">
           <circle cx="56" cy="-6" r="5" fill="#2B8CEB"/>
           <text class="sf-day-lbl" x="72" data-sf-label="Total Usage">Total Usage</text>
           <text class="sf-day-val" x="350" id="sfDayUse">&mdash;</text>
         </g>
-        <g class="sf-day-row" transform="translate(0 100)">
+        <g class="sf-day-row" transform="translate(0 94)">
           <circle cx="56" cy="-6" r="5" fill="#F28C1B"/>
           <text class="sf-day-lbl" x="72" data-sf-label="Total Generation">Total Generation</text>
           <text class="sf-day-val" x="350" id="sfDayGen">&mdash;</text>
         </g>
-        <g class="sf-day-row" transform="translate(0 130)">
+        <g class="sf-day-row" transform="translate(0 120)">
           <circle cx="56" cy="-6" r="5" fill="#E53935"/>
           <text class="sf-day-lbl" x="72" data-sf-label="Total Import">Total Import</text>
           <text class="sf-day-val" x="350" id="sfDayImp">&mdash;</text>
         </g>
-        <g class="sf-day-row" transform="translate(0 160)">
+        <g class="sf-day-row" transform="translate(0 146)">
           <circle cx="56" cy="-6" r="5" fill="#2EA043"/>
           <text class="sf-day-lbl" x="72" data-sf-label="Total Export">Total Export</text>
           <text class="sf-day-val" x="350" id="sfDayExp">&mdash;</text>
         </g>
-        <line class="sf-day-rule" x1="50" y1="175" x2="350" y2="175"/>
-        <g class="sf-day-row" transform="translate(0 200)">
+        <line class="sf-day-rule" x1="50" y1="157" x2="350" y2="157"/>
+        <g class="sf-day-row" transform="translate(0 180)">
           <path d="M51 -2 L56 -11 L61 -2 Z" fill="#2B8CEB"/>
           <text class="sf-day-lbl" x="72" data-sf-label="Peak Usage">Peak Usage</text>
           <text class="sf-day-val" x="350" id="sfDayPeak">&mdash;</text>
+        </g>
+        <g class="sf-day-row" transform="translate(0 204)">
+          <path d="M51 -2 L56 -11 L61 -2 Z" fill="#F28C1B"/>
+          <text class="sf-day-lbl" x="72" data-sf-label="Peak Efficiency">Peak Efficiency</text>
+          <text class="sf-day-val" x="350" id="sfDayPvEff">&mdash;</text>
         </g>
       </g>
 
@@ -194,31 +200,36 @@ body{
         <rect class="sf-day-bg" x="30" y="384" width="340" height="206" rx="16"/>
         <text class="sf-day-title" x="50" y="414" data-sf-label="All Time">All Time</text>
         <text class="sf-day-since" x="350" y="414" id="sfAllSince"></text>
-        <g class="sf-day-row" transform="translate(0 444)">
+        <g class="sf-day-row" transform="translate(0 442)">
           <circle cx="56" cy="-6" r="5" fill="#2B8CEB"/>
           <text class="sf-day-lbl" x="72" data-sf-label="Total Usage">Total Usage</text>
           <text class="sf-day-val" x="350" id="sfAllUse">&mdash;</text>
         </g>
-        <g class="sf-day-row" transform="translate(0 474)">
+        <g class="sf-day-row" transform="translate(0 468)">
           <circle cx="56" cy="-6" r="5" fill="#F28C1B"/>
           <text class="sf-day-lbl" x="72" data-sf-label="Total Generation">Total Generation</text>
           <text class="sf-day-val" x="350" id="sfAllGen">&mdash;</text>
         </g>
-        <g class="sf-day-row" transform="translate(0 504)">
+        <g class="sf-day-row" transform="translate(0 494)">
           <circle cx="56" cy="-6" r="5" fill="#E53935"/>
           <text class="sf-day-lbl" x="72" data-sf-label="Total Import">Total Import</text>
           <text class="sf-day-val" x="350" id="sfAllImp">&mdash;</text>
         </g>
-        <g class="sf-day-row" transform="translate(0 534)">
+        <g class="sf-day-row" transform="translate(0 520)">
           <circle cx="56" cy="-6" r="5" fill="#2EA043"/>
           <text class="sf-day-lbl" x="72" data-sf-label="Total Export">Total Export</text>
           <text class="sf-day-val" x="350" id="sfAllExp">&mdash;</text>
         </g>
-        <line class="sf-day-rule" x1="50" y1="549" x2="350" y2="549"/>
-        <g class="sf-day-row" transform="translate(0 574)">
+        <line class="sf-day-rule" x1="50" y1="531" x2="350" y2="531"/>
+        <g class="sf-day-row" transform="translate(0 554)">
           <path d="M51 -2 L56 -11 L61 -2 Z" fill="#2B8CEB"/>
           <text class="sf-day-lbl" x="72" data-sf-label="Peak Usage">Peak Usage</text>
           <text class="sf-day-val" x="350" id="sfAllPeak">&mdash;</text>
+        </g>
+        <g class="sf-day-row" transform="translate(0 578)">
+          <path d="M51 -2 L56 -11 L61 -2 Z" fill="#F28C1B"/>
+          <text class="sf-day-lbl" x="72" data-sf-label="Peak Efficiency">Peak Efficiency</text>
+          <text class="sf-day-val" x="350" id="sfAllPvEff">&mdash;</text>
         </g>
       </g>
 
@@ -452,11 +463,22 @@ body{
       return T('at') + ' ' + p.hour + ':' + p.minute;
     });
   }
-  // "<power> <suffix>", the suffix (time or date) in a lighter tspan.
-  function peakText(id, w, ts, cls, suffix){
+  // Today's peak solar efficiency: PV power as a % of the array's rating
+  // (server's "today_pv_peak" block; needs [DivumWXCards] solar_array_watts).
+  function renderPvPeak(pk){
+    const ts = pk && num(pk.time);
+    peakText('sfDayPvEff', pk && num(pk.efficiency), ts, 'sf-on', () => {
+      const p = stationParts(new Date(ts * 1000));
+      return T('at') + ' ' + p.hour + ':' + p.minute;
+    }, pctText);
+  }
+  const pctText = e => (e >= 10 ? Math.round(e) : e.toFixed(1)) + '%';
+  const wattText = w => w >= 1000 ? (w / 1000).toFixed(w >= 10000 ? 1 : 2) + ' kW' : Math.round(w) + ' W';
+  // "<value> <suffix>", the suffix (time or date) in a lighter tspan.
+  function peakText(id, w, ts, cls, suffix, fmt){
     const el = $(id);
     if (w === null || w === undefined || !w) { el.textContent = '—'; return; }
-    const val = w >= 1000 ? (w / 1000).toFixed(w >= 10000 ? 1 : 2) + ' kW' : Math.round(w) + ' W';
+    const val = (fmt || wattText)(w);
     if (!ts) { el.textContent = val; return; }
     el.textContent = val + ' ';
     const sp = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
@@ -486,6 +508,8 @@ body{
     txt('sfAllSince', since ? T('since') + ' ' + fmtDate(since) : '');
     const pts = a && num(a.peak_time);
     peakText('sfAllPeak', a && num(a.peak_power), pts, 'sf-on', () => fmtShortDate(pts));
+    const ets = a && num(a.pv_peak_time);
+    peakText('sfAllPvEff', a && num(a.pv_peak_efficiency), ets, 'sf-on', () => fmtShortDate(ets), pctText);
   }
   const fmtBig = k => k === null ? '—' : k >= 100000 ? (k / 1000).toFixed(1) + ' MWh'
     : k >= 1000 ? Math.round(k).toLocaleString() + ' kWh' : k.toFixed(1) + ' kWh';
@@ -523,6 +547,7 @@ body{
         });
         renderAll(d.alltime || null);
         renderPeak(d.today_peak || null);
+        renderPvPeak(d.today_pv_peak || null);
         setStatus(d.connected === true);
       })
       .catch(e => {
