@@ -1,6 +1,6 @@
 """
 ##############################################################################################
-# divumwx_meteoalarm.py version 1.0.0
+# divumwx_meteoalarm.py version 1.0.1
 #  Copyright (C) 2026 Ian Millard, Sean Balfour
 #  GPLv3
 ##############################################################################################
@@ -69,7 +69,7 @@ except ImportError:  # running standalone
 
 log = logging.getLogger(__name__)
 
-VERSION = "1.0.0"   # divumwx_meteoalarm; based on weewx-meteoalarm 1.0.0
+VERSION = "1.0.1"   # divumwx_meteoalarm; based on weewx-meteoalarm 1.0.0
 FEED_URL = "https://feeds.meteoalarm.org/api/v1/warnings/feeds-{slug}"
 # Bump when matching changes, so cached results from older code are thrown away
 # (the cache outlives a restart, and would otherwise hide new matches for cache_max_age).

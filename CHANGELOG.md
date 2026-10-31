@@ -1,5 +1,57 @@
 # DivumWX Changelog
 
+## 2.0.4 — 31 October 2026
+
+### Version 2.0.4
+- Bug-fix and small-feature release. `DIVUMWX_VERSION` is now `2.0.4`. The
+  `index.html` header and footer fallback, the `divumwf.html` badge, the
+  README title and `INSTALLATION_GUIDE.md` all say 2.0.4.
+- The install guide downloads from the release tag `ver.2.0.4`.
+
+### MeteoAlarm: UK warnings by region
+- The Met Office tags its warnings in the MeteoAlarm feed by forecast region
+  (e.g. "London & South East England") and gives each an outline, not the
+  county codes chosen at setup, so a warning in force for Buckinghamshire
+  (UK215) never reached `meteoalarm.json`. A warning that names none of the
+  chosen areas now matches the areas its outline crosses, using the area
+  shapes shipped in `skins/DivumWX/meteoalarm/areas` (`area_hits` in
+  `divumwx_meteoalarm.py`). Warnings that name an area's code match as
+  before. Checked with that day's fog warning on a live station.
+- The warnings cache now records `MATCH_VERSION`, so after an update a
+  restart refetches the feeds instead of serving the old result for up to
+  `cache_max_age`.
+
+### MeteoAlarm icons
+- The warning icons are now a black symbol in a triangle filled with the
+  warning's colour, with a black border: `img/meteoalarm/meteoalarm_<symbol>_<level>.svg`
+  for levels 1-4, picked by the alert bar from the warning's level. The
+  plain `meteoalarm_<symbol>.svg` files are the yellow version. They're
+  built from the original symbols by `make_meteoalarm_icons.py`.
+
+### Solar Power Flow: peak solar efficiency
+- The kiosk (`solarFlowKiosk.html` 1.0.5) and the charts modal show a Peak
+  Efficiency row in the Today and All Time panels: the highest PV power as
+  a percentage of the array's rating (`[DivumWXCards] solar_array_watts`),
+  with the time or date it happened.
+- `solar_assistant_mqtt.py` 4.8 follows peak PV power live like peak load,
+  picks today's back up from the database after a restart, and writes a
+  `today_pv_peak` block and `alltime` `pv_peak_power` / `pv_peak_time` /
+  `pv_peak_efficiency` to `solar_data.json`. Without `solar_array_watts`
+  the rows show a dash.
+
+### Nearby METAR icon
+- The Nearby METAR popup loaded its sky icon from `img/meteocons/`, which
+  doesn't exist, so it showed a broken image. It now uses
+  `meteocons/fill/svg/` like the cards (`modalMetar.html`).
+
+### UK-only alerts on stations outside the UK
+- The alert bar's UK check compared a fixed `'unitedkingdom'` with itself,
+  so the AuroraWatch UK and UKHSA heat/cold health alerts showed on any
+  station with those files on its site, e.g. a southern-hemisphere station
+  with an old `aurora.txt`. They now show only for a UK station: the
+  installer's answer (`archive.json` `meta.in_uk`), else the station's
+  position. Checked for UK, Sydney and New York stations.
+
 ## 2.0.3 — 30 October 2026
 
 ### Version 2.0.3

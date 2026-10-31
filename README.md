@@ -1,6 +1,11 @@
-# Welcome to the DivumWX skin for WeeWX Version 2.0.3
+# Welcome to the DivumWX skin for WeeWX Version 2.0.4
 Copyright :copyright: 2026 Ian Millard and Sean Balfour, [GNU GENERAL PUBLIC LICENSE Version 3](https://github.com/Millardiang/weewx-divumwx/blob/main/license.txt)
  
+# What's new in 2.0.4
+* **MeteoAlarm** - UK warnings issued for a whole region (the Met Office's way) now reach the alert bar for the counties inside it, and the warning icons are black symbols in a triangle of the warning's colour.
+* **Solar Power Flow** - the kiosk and the charts modal show today's and the all-time peak solar efficiency.
+* **Fixes** - the Nearby METAR popup shows its weather icon again, and the AuroraWatch UK and UKHSA health alerts only show for stations in the UK.
+
 # What's new in 2.0.3
 * **Lightning and air quality fixes** - the Lightning card works on stations that count strikes without recording a distance, and the Air Quality card reads Ecowitt PM2.5 sensors (`pm25_1`). The installation guide shows how to map other drivers' field names.
 

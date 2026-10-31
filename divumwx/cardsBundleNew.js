@@ -712,7 +712,17 @@ try {
 // user.divumwx_meteoalarm.MeteoalarmService.
 
 (function(){
-  var ADVISORY_ZONE = 'unitedkingdom';
+  // AuroraWatch UK and the UKHSA heat/cold health alerts are for the UK only,
+  // so they're shown only for a UK station, whatever jsondata files happen to
+  // be on the site. The installer's own answer (archive.json meta.in_uk) wins;
+  // without one, the station's position decides.
+  var UK_BOX = { south: 49.8, north: 61.0, west: -8.8, east: 2.0 };
+  function stationInUk(meta){
+    if (meta && typeof meta.in_uk === 'boolean') return meta.in_uk;
+    var lat = meta && parseFloat(meta.latitude), lon = meta && parseFloat(meta.longitude);
+    if (!isFinite(lat) || !isFinite(lon)) return false;
+    return lat >= UK_BOX.south && lat <= UK_BOX.north && lon >= UK_BOX.west && lon <= UK_BOX.east;
+  }
   var POLL_MS = 5 * 60 * 1000;
 
   var mount = document.getElementById('alertBarMount');
@@ -1078,12 +1088,12 @@ try {
       var useMeteoalarm = (archive.meta && archive.meta.warnings_source) === 'meteoalarm';
       var stationLocation = (archive.meta && archive.meta.station_location) || 'this location';
 
-      if (ADVISORY_ZONE !== 'unitedkingdom') return;
+      var inUk = stationInUk(archive.meta);
 
       var sections = [];
       var now = Date.now();
 
-      if (auroraText) {
+      if (auroraText && inUk) {
         var aurora = getAuroraData(auroraText);
         if (aurora && aurora !== AURORA_LEVELS.yellow) {
           sections.push(buildSection({
@@ -1132,7 +1142,7 @@ try {
         };
         return true;
       });
-      if (healthData && HEALTH_ALERT_CONFIG[healthData.alertId]) {
+      if (inUk && healthData && HEALTH_ALERT_CONFIG[healthData.alertId]) {
         var hc = HEALTH_ALERT_CONFIG[healthData.alertId];
         var riskText = healthData.riskScore ? (' Risk score: ' + healthData.riskScore + '/10.') : '';
         var headline = hc.label + ' for ' + healthData.region + '. Effective from ' + fmtDateLong(healthData.from) +
