@@ -8,6 +8,10 @@ Uses ACTUAL topic names from your Solar Assistant installation
      happened (see _note_load).
 4.7: "alltime" also carries the all-time peak total load and when it happened
      (peak_power / peak_time).
+4.8: peak solar too: a "today_pv_peak" block (power, time, efficiency) and
+     "alltime" pv_peak_power / pv_peak_time / pv_peak_efficiency. Efficiency is
+     the PV power as a percentage of the array's rated watts ([DivumWXCards]
+     solar_array_watts, as on the solar cards); null when that isn't set.
 """
 
 import json
@@ -21,7 +25,7 @@ import paho.mqtt.client as mqtt
 import weewx
 from weewx.engine import StdService
 
-VERSION = "4.7-ALLTIME-PEAK"
+VERSION = "4.8-PEAK-SOLAR"
 
 log = logging.getLogger(__name__)
 
@@ -161,8 +165,9 @@ class SolarAssistantMQTT(StdService):
         # All-time totals of the days before today (see _update_alltime);
         # today's live counters are added when the JSON is written.
         self.alltime_past = None
-        # Today's peak total load: {'day': start-of-day, 'power': W, 'time': epoch}
-        self.peak = {'day': None, 'power': None, 'time': None}
+        # Today's peaks, total load and PV: {'day': start-of-day, 'power': W, 'time': epoch}
+        self.peaks = {k: {'day': None, 'power': None, 'time': None} for k in ('load', 'pv')}
+        self.array_watts = self._array_watts(config_dict)
         
         self.mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="weewx_solar")
         
@@ -234,6 +239,8 @@ class SolarAssistantMQTT(StdService):
                 }
                 if topic in self.LOAD_TOPICS:
                     self._note_load()
+                elif topic == self.PV_TOPIC:
+                    self._peak_candidate('pv', self._num(value), time.time())
             
             if self.message_count == 1:
                 log.info(f"SolarAssistantMQTT: ✅ First MQTT message")
@@ -316,6 +323,24 @@ class SolarAssistantMQTT(StdService):
     LOAD_PART_TOPICS = ('solar_assistant/inverter_1/load_power_essential/state',
                         'solar_assistant/inverter_1/load_power/state')
     LOAD_TOPICS = (LOAD_TOTAL_TOPIC,) + LOAD_PART_TOPICS
+    # Peak solar: followed the same way, from pv_power (saved as pv_power).
+    PV_TOPIC = 'solar_assistant/inverter_1/pv_power/state'
+    PEAK_COLS = {'load': 'load_power_non_essential', 'pv': 'pv_power'}
+
+    @staticmethod
+    def _array_watts(config_dict):
+        """The array's rated watts ([DivumWXCards] solar_array_watts), or None."""
+        try:
+            w = float(str(config_dict.get('DivumWXCards', {}).get('solar_array_watts', '') or '').strip().rstrip('Ww'))
+        except ValueError:
+            return None
+        return w if w > 0 else None
+
+    def _efficiency(self, power):
+        """PV power as a percentage of the array's rating, 1 decimal; None if unknown."""
+        if power is None or not self.array_watts:
+            return None
+        return round(power / self.array_watts * 100, 1)
 
     @staticmethod
     def _num(v):
@@ -324,17 +349,18 @@ class SolarAssistantMQTT(StdService):
         except (TypeError, ValueError):
             return None
 
-    def _peak_candidate(self, power, when):
-        """Keep `power` (W) at `when` if it beats today's peak. Called with data_lock held."""
+    def _peak_candidate(self, which, power, when):
+        """Keep `power` (W) at `when` if it beats today's `which` peak. Called with data_lock held."""
         import weeutil.weeutil
         day = weeutil.weeutil.startOfDay(when)
-        if self.peak['day'] != day:
-            if self.peak['day'] is not None and day < self.peak['day']:
+        pk = self.peaks[which]
+        if pk['day'] != day:
+            if pk['day'] is not None and day < pk['day']:
                 return
-            self.peak = {'day': day, 'power': None, 'time': None}
-        if power is not None and (self.peak['power'] is None or power > self.peak['power']):
-            self.peak['power'] = power
-            self.peak['time'] = int(when)
+            pk = self.peaks[which] = {'day': day, 'power': None, 'time': None}
+        if power is not None and (pk['power'] is None or power > pk['power']):
+            pk['power'] = power
+            pk['time'] = int(when)
 
     def _note_load(self):
         """Called with data_lock held, after a load message."""
@@ -343,24 +369,28 @@ class SolarAssistantMQTT(StdService):
             parts = [self._num(self.mqtt_data.get(t, {}).get('value')) for t in self.LOAD_PART_TOPICS]
             if any(p is not None for p in parts):
                 total = sum(p or 0 for p in parts)
-        self._peak_candidate(total, time.time())
+        self._peak_candidate('load', total, time.time())
 
     def _seed_peak(self, dbm, today):
-        """Pick today's peak back up from the database (e.g. after a restart)."""
-        col = 'load_power_non_essential'
-        if col not in getattr(dbm, 'daykeys', ()):
-            return
-        row = dbm.getSql('SELECT max, maxtime FROM %s_day_%s WHERE dateTime = ?' % (dbm.table_name, col), (today,))
-        if row and row[0] is not None and row[1] is not None:
-            with self.data_lock:
-                self._peak_candidate(float(row[0]), int(row[1]))
+        """Pick today's peaks back up from the database (e.g. after a restart)."""
+        for which, col in self.PEAK_COLS.items():
+            if col not in getattr(dbm, 'daykeys', ()):
+                continue
+            row = dbm.getSql('SELECT max, maxtime FROM %s_day_%s WHERE dateTime = ?' % (dbm.table_name, col), (today,))
+            if row and row[0] is not None and row[1] is not None:
+                with self.data_lock:
+                    self._peak_candidate(which, float(row[0]), int(row[1]))
 
-    def _peak_block(self):
+    def _peak_block(self, which='load'):
         """Called with data_lock held."""
         import weeutil.weeutil
-        if self.peak['power'] is None or self.peak['day'] != weeutil.weeutil.startOfDay(time.time()):
+        pk = self.peaks[which]
+        if pk['power'] is None or pk['day'] != weeutil.weeutil.startOfDay(time.time()):
             return None
-        return {'power': round(self.peak['power']), 'time': self.peak['time']}
+        out = {'power': round(pk['power']), 'time': pk['time']}
+        if which == 'pv':
+            out['efficiency'] = self._efficiency(pk['power'])
+        return out
 
     def new_archive_record(self, event):
         self._update_alltime()
@@ -405,18 +435,20 @@ class SolarAssistantMQTT(StdService):
             first = [min(v) for k, v in days.items() if v and k in ('generation', 'import', 'export', 'usage')]
             # Highest total load on any day before today (from the saved
             # archive records, so a spike between two records isn't seen).
-            past_peak = None
-            if 'load_power_non_essential' in getattr(dbm, 'daykeys', ()):
-                row = dbm.getSql('SELECT max, maxtime FROM %s_day_load_power_non_essential '
-                                 'WHERE dateTime < ? AND max IS NOT NULL AND maxtime IS NOT NULL '
-                                 'ORDER BY max DESC LIMIT 1' % dbm.table_name, (today,))
-                if row:
-                    past_peak = (float(row[0]), int(row[1]))
+            past_peaks = {}
+            for which, col in self.PEAK_COLS.items():
+                past_peaks[which] = None
+                if col in getattr(dbm, 'daykeys', ()):
+                    row = dbm.getSql('SELECT max, maxtime FROM %s_day_%s '
+                                     'WHERE dateTime < ? AND max IS NOT NULL AND maxtime IS NOT NULL '
+                                     'ORDER BY max DESC LIMIT 1' % (dbm.table_name, col), (today,))
+                    if row:
+                        past_peaks[which] = (float(row[0]), int(row[1]))
             alltime = {
                 'since': min(first) if first else today,
                 'usage_estimated_days': estimated,
                 'past': past,
-                'past_peak': past_peak,
+                'past_peaks': past_peaks,
             }
             with self.data_lock:
                 self.alltime_past = alltime
@@ -436,13 +468,16 @@ class SolarAssistantMQTT(StdService):
             except (TypeError, ValueError):
                 today = 0.0
             out[key] = round(self.alltime_past['past'].get(key, 0.0) + today, 2)
-        # All-time peak: the best earlier day, or today's live peak if higher.
-        best = self.alltime_past.get('past_peak')
-        tp = self._peak_block()
-        if tp and (best is None or tp['power'] > best[0]):
-            best = (tp['power'], tp['time'])
-        out['peak_power'] = round(best[0]) if best else None
-        out['peak_time'] = best[1] if best else None
+        # All-time peaks: the best earlier day, or today's live peak if higher.
+        for which, prefix in (('load', 'peak_'), ('pv', 'pv_peak_')):
+            best = self.alltime_past.get('past_peaks', {}).get(which)
+            tp = self._peak_block(which)
+            if tp and (best is None or tp['power'] > best[0]):
+                best = (tp['power'], tp['time'])
+            out[prefix + 'power'] = round(best[0]) if best else None
+            out[prefix + 'time'] = best[1] if best else None
+            if which == 'pv':
+                out['pv_peak_efficiency'] = self._efficiency(best[0]) if best else None
         return out
 
     def _write_json(self):
@@ -455,7 +490,8 @@ class SolarAssistantMQTT(StdService):
                     'connected': self.connected,
                     'unique_topics': len(self.mqtt_data),
                     'alltime': self._alltime_block(),
-                    'today_peak': self._peak_block(),
+                    'today_peak': self._peak_block('load'),
+                    'today_pv_peak': self._peak_block('pv'),
                     'data': dict(self.mqtt_data)
                 }
             
